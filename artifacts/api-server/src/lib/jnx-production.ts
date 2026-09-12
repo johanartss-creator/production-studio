@@ -2,6 +2,7 @@ import type {
   ProjectMeasurement,
   ProjectRecord,
 } from "@workspace/db";
+import { bounds, draftPattern, type PatternPiece, type Point } from "./pattern-engine";
 
 export const PRELIMINARY_WARNING =
   "PRELIMINARY_UNVALIDATED — Development pattern only. A qualified pattern maker must review this output, validate it in the specified fabric, correct it after a physical fitting, and approve a signed PP sample before bulk cutting.";
@@ -114,42 +115,55 @@ export const flatSvg = (project: ProjectRecord) => {
   );
 };
 
-export const patternSvg = (project: ProjectRecord) => {
-  const cargo = project.garmentType === "wide_cargo";
-  const pieces = cargo
-    ? [
-        ["FRONT LEG", "M30 55L185 25L230 560L80 560Z"],
-        ["BACK LEG", "M290 40L460 20L505 560L340 560Z"],
-        ["WAISTBAND", "M565 50L1030 50L1030 105L565 105Z"],
-        ["CARGO POCKET", "M590 170L790 170L790 385L590 385Z"],
-        ["POCKET FLAP", "M850 170L1040 170L1040 245L850 245Z"],
-        ["FRONT POCKET", "M850 310Q945 260 1040 310L1020 430L870 430Z"],
-        ["FLY SHIELD", "M590 475Q650 430 710 475L690 605L610 605Z"],
-      ]
-    : [
-        ["FRONT", "M35 70L185 25L330 70L305 530L60 530Z"],
-        ["BACK", "M380 70L530 25L675 70L650 530L405 530Z"],
-        ["SLEEVE", "M735 55Q875 0 1015 55L965 245L785 245Z"],
-        ["HOOD SIDE", "M735 310Q820 225 905 310L890 515L755 515Z"],
-        ["HOOD CENTRE", "M955 310L1085 310L1085 520L955 520Z"],
-        ["KANGAROO POCKET", "M735 570L955 570L935 680L755 680Z"],
-        ["CUFF", "M990 575L1135 575L1135 665L990 665Z"],
-      ];
+const pointString = (points: Point[], scale: number, ox: number, oy: number) =>
+  points.map((point) => `${(point.x * scale + ox).toFixed(1)},${(point.y * scale + oy).toFixed(1)}`).join(" ");
 
-  const body = pieces
-    .map(
-      ([label, d], index) =>
-        `<path class="piece" d="${d}"/><path class="seam" d="${d}" transform="translate(${index % 2 === 0 ? 5 : -5} 5)"/><text class="label" x="${45 + (index % 3) * 360}" y="${95 + Math.floor(index / 3) * 230}">${xml(label)}</text>`,
-    )
+const renderPatternPiece = (piece: PatternPiece, x: number, y: number, scale: number) => {
+  const outline = pointString(piece.points, scale, x, y);
+  const grain = piece.grainline
+    ? `<line class="grain" x1="${piece.grainline[0].x * scale + x}" y1="${piece.grainline[0].y * scale + y}" x2="${piece.grainline[1].x * scale + x}" y2="${piece.grainline[1].y * scale + y}"/>`
+    : "";
+  const fold = piece.fold
+    ? `<line x1="${piece.fold[0].x * scale + x}" y1="${piece.fold[0].y * scale + y}" x2="${piece.fold[1].x * scale + x}" y2="${piece.fold[1].y * scale + y}" stroke="#2f63a3" stroke-width="3" stroke-dasharray="4 5"/>`
+    : "";
+  const notches = (piece.notches ?? [])
+    .map((notch) => `<circle cx="${notch.x * scale + x}" cy="${notch.y * scale + y}" r="4" fill="#d43126"/>`)
     .join("");
+  return `<g data-piece="${xml(piece.id)}">
+    <polygon class="piece" points="${outline}"/>
+    <polygon class="seam" points="${outline}" transform="translate(${piece.seamAllowanceMm / 2} ${piece.seamAllowanceMm / 2})"/>
+    ${grain}${fold}${notches}
+    <text class="label" x="${x + 8}" y="${y + 20}">${xml(piece.name)}</text>
+    <text class="meta" x="${x + 8}" y="${y + 39}">${xml(piece.cut)} · SA ${piece.seamAllowanceMm} MM</text>
+  </g>`;
+};
+
+export const patternSvg = (project: ProjectRecord) => {
+  const pieces = draftPattern(project);
+  let cursorX = 40;
+  let cursorY = 95;
+  let rowHeight = 0;
+  const scale = project.garmentType === "wide_cargo" ? 3.4 : 5.2;
+  const body = pieces.map((piece) => {
+    const size = bounds(piece);
+    const width = size.width * scale + 35;
+    const height = size.height * scale + 55;
+    if (cursorX + width > 1160) {
+      cursorX = 40;
+      cursorY += rowHeight + 22;
+      rowHeight = 0;
+    }
+    const rendered = renderPatternPiece(piece, cursorX, cursorY, scale);
+    cursorX += width;
+    rowHeight = Math.max(rowHeight, height);
+    return rendered;
+  }).join("");
 
   return svgShell(
-    `<text x="48" y="42" class="label">${xml(project.styleNumber)} / GRADED VECTOR NEST / REV ${project.revision}</text>
-     <text x="48" y="66" class="meta">XS–XXL · BASE M · 10 MM DEVELOPMENT ALLOWANCE SHOWN DASHED RED</text>
-     <g transform="translate(20 65)">${body}
-       <line class="grain" x1="170" y1="175" x2="170" y2="410"/><text x="178" y="285" class="meta">GRAINLINE</text>
-     </g>`,
-    `${project.styleNumber} graded pattern`,
+    `<text x="48" y="42" class="label">${xml(project.styleNumber)} / PARAMETRIC BASE PATTERN / REV ${project.revision}</text>
+     <text x="48" y="66" class="meta">BASE ${xml(project.baseSize)} · DIMENSION-DRIVEN DEVELOPMENT BLOCK · RED = SA REFERENCE · BLUE = FOLD</text>
+     ${body}`,
+    `${project.styleNumber} parametric base pattern`,
   );
 };
 
@@ -189,7 +203,83 @@ const csv = (project: ProjectRecord) => {
   ].join("\n");
 };
 
-const dxf = (project: ProjectRecord) => `0
+const bomCsv = (project: ProjectRecord) => [
+  "CATEGORY,ITEM,SPECIFICATION,SUPPLIER,STATUS",
+  ...(project.materials.length ? project.materials : [{ name: "Main fabric", specification: "TO BE CONFIRMED AFTER FABRIC TEST", supplier: "TBC" }])
+    .map((item) => `MATERIAL,"${item.name}","${item.specification}","${item.supplier}",DEVELOPMENT`),
+  `COLOR,"${project.primaryColor.name}","${project.primaryColor.hex} / ${project.primaryColor.pantone}",TBC,DEVELOPMENT`,
+].join("\n");
+
+const constructionCsv = (project: ProjectRecord) => {
+  const operations = project.garmentType === "wide_cargo"
+    ? [
+        ["C01", "Rise and inseam", "5-thread safety stitch", "10-12", "Match notches; reinforce crotch"],
+        ["C02", "Cargo pocket", "Lockstitch + edge stitch", "10-12", "Confirm finished position on fit sample"],
+        ["C03", "Waistband", "Lockstitch / clean finish", "10-12", "Verify extension and closure"],
+        ["C04", "Hem", "Blind or lockstitch per sample", "10-12", "Finished opening must match POM"],
+      ]
+    : [
+        ["C01", "Shoulder / armhole", "5-thread safety stitch", "10-12", "Stabilize shoulder; match sleeve notches"],
+        ["C02", "Hood assembly", "Lockstitch + clean finish", "10-12", "Confirm hood volume on fit sample"],
+        ["C03", "Pocket", "Lockstitch + bartack", "10-12", "Mirror placement from centre front"],
+        ["C04", "Rib attachment", "Overlock + cover/lock stitch", "10-12", "Confirm rib stretch ratio after test"],
+      ];
+  return ["OPERATION,AREA,SEAM/STITCH,SPI,QUALITY CONTROL", ...operations.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
+};
+
+const validationReport = (project: ProjectRecord) => {
+  const pieces = draftPattern(project);
+  return {
+    status: "PRELIMINARY_UNVALIDATED",
+    engine: "JNX_PARAMETRIC_BLOCK_V1",
+    units: "millimetres",
+    baseSize: project.baseSize,
+    geometryDrivenByMeasurements: true,
+    pieceCount: pieces.length,
+    pieces: pieces.map((piece) => ({
+      id: piece.id,
+      name: piece.name,
+      cut: piece.cut,
+      seamAllowanceMm: piece.seamAllowanceMm,
+      boundsCm: bounds(piece),
+      hasGrainline: Boolean(piece.grainline),
+      notchCount: piece.notches?.length ?? 0,
+    })),
+    gatesBeforeBulk: ["fabric shrinkage test", "pattern-maker review", "seam walk", "physical toile", "fit sample", "PP sample approval"],
+    warning: PRELIMINARY_WARNING,
+  };
+};
+
+const dxfPolyline = (piece: PatternPiece, offsetX: number) => `0
+LWPOLYLINE
+8
+${piece.id.toUpperCase()}
+90
+${piece.points.length}
+70
+1
+${piece.points.map((point) => `10\n${((point.x + offsetX) * 10).toFixed(3)}\n20\n${(-point.y * 10).toFixed(3)}`).join("\n")}
+0
+TEXT
+8
+ANNOTATION
+10
+${(offsetX * 10).toFixed(3)}
+20
+100
+40
+8
+1
+${piece.name} / ${piece.cut} / SA ${piece.seamAllowanceMm} MM`;
+
+const dxf = (project: ProjectRecord) => {
+  let offsetX = 0;
+  const entities = draftPattern(project).map((piece) => {
+    const entity = dxfPolyline(piece, offsetX);
+    offsetX += bounds(piece).width + 15;
+    return entity;
+  }).join("\n");
+  return `0
 SECTION
 2
 HEADER
@@ -207,46 +297,24 @@ ENDSEC
 SECTION
 2
 ENTITIES
-0
-LWPOLYLINE
-8
-PATTERN
-90
-4
-70
-1
-10
-0
-20
-0
-10
-${project.garmentType === "wide_cargo" ? 420 : 680}
-20
-0
-10
-${project.garmentType === "wide_cargo" ? 390 : 650}
-20
-${project.garmentType === "wide_cargo" ? 1100 : 720}
-10
-30
-20
-${project.garmentType === "wide_cargo" ? 1100 : 720}
+${entities}
 0
 TEXT
 8
 ANNOTATION
 10
+0
 20
-20
--35
+250
 40
-12
+8
 1
-${project.styleNumber} REV ${project.revision} ${PRELIMINARY_WARNING}
+${project.styleNumber} REV ${project.revision} / MM / ${PRELIMINARY_WARNING}
 0
 ENDSEC
 0
 EOF`;
+};
 
 const pdf = (project: ProjectRecord) => {
   const text = [
@@ -256,6 +324,10 @@ const pdf = (project: ProjectRecord) => {
     `SEASON: ${project.season} / BASE SIZE: ${project.baseSize} / REV: ${project.revision}`,
     `FIT: ${project.fit}`,
     `COLOR: ${project.primaryColor.name} / ${project.primaryColor.hex} / ${project.primaryColor.pantone}`,
+    `PATTERN ENGINE: JNX PARAMETRIC BLOCK V1 / ${draftPattern(project).length} PIECES`,
+    `MATERIALS: ${project.materials.map((material) => `${material.name}: ${material.specification}`).join("; ") || "TBC AFTER FABRIC TEST"}`,
+    `ARTWORK: ${project.artworks.map((artwork) => `${artwork.name}: ${artwork.placement}`).join("; ") || "NONE SPECIFIED"}`,
+    "MANDATORY GATES: SHRINKAGE / SEAM WALK / TOILE / FIT SAMPLE / PP SAMPLE",
     PRELIMINARY_WARNING,
   ]
     .map((line) => line.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)"))
@@ -351,8 +423,11 @@ export const packageFileNames = (project: ProjectRecord) => {
     `${stem}_technical_flat.svg`,
     `${stem}_graded_pattern.svg`,
     `${stem}_measurements.csv`,
+    `${stem}_bill_of_materials.csv`,
+    `${stem}_construction.csv`,
     `${stem}_pattern.dxf`,
     `${stem}_tech_pack.pdf`,
+    `${stem}_pattern_validation.json`,
     `${stem}_manifest.json`,
     "READ_ME_FIRST.txt",
   ];
@@ -375,16 +450,22 @@ export const buildFactoryZip = (project: ProjectRecord) => {
     { name: names[0]!, content: Buffer.from(flatSvg(project)) },
     { name: names[1]!, content: Buffer.from(patternSvg(project)) },
     { name: names[2]!, content: Buffer.from(csv(project)) },
-    { name: names[3]!, content: Buffer.from(dxf(project)) },
-    { name: names[4]!, content: pdf(project) },
+    { name: names[3]!, content: Buffer.from(bomCsv(project)) },
+    { name: names[4]!, content: Buffer.from(constructionCsv(project)) },
+    { name: names[5]!, content: Buffer.from(dxf(project)) },
+    { name: names[6]!, content: pdf(project) },
     {
-      name: names[5]!,
+      name: names[7]!,
+      content: Buffer.from(JSON.stringify(validationReport(project), null, 2)),
+    },
+    {
+      name: names[8]!,
       content: Buffer.from(JSON.stringify(manifest, null, 2)),
     },
     {
-      name: names[6]!,
+      name: names[9]!,
       content: Buffer.from(
-        `${PRELIMINARY_WARNING}\n\nThe red dashed vector is a global 10 mm development allowance. Confirm seam allowances edge by edge before sampling or production.`,
+        `${PRELIMINARY_WARNING}\n\nThis package uses an original JNX dimension-driven development block. It does not reproduce a third-party fashion house pattern. Seam allowances are annotated by piece and must be walked and confirmed edge-by-edge before sampling.`,
       ),
     },
   ]);
