@@ -106,6 +106,18 @@ export function ProjectDetail() {
     });
   };
 
+  const updateMeasurement = (index: number, field: 'valueCm' | 'toleranceCm' | 'gradeRule', value: string) => {
+    setEditForm((current: any) => {
+      if (!current) return current;
+      const measurements = current.measurements.map((measurement: any, measurementIndex: number) =>
+        measurementIndex === index
+          ? { ...measurement, [field]: field === 'gradeRule' ? value : Number(value) }
+          : measurement
+      );
+      return { ...current, measurements };
+    });
+  };
+
   const handleGeneratePackage = () => {
     generatePackage.mutate({ projectId: project.id }, {
       onSuccess: (data) => {
@@ -281,9 +293,23 @@ export function ProjectDetail() {
 
           <TabsContent value="measurements" className="m-0">
             <Card className="rounded-sm">
-              <CardHeader>
-                <CardTitle>Base Size Measurements ({project.baseSize})</CardTitle>
-                <CardDescription>Core specification for pattern drafting.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Base Size Measurements ({project.baseSize})</CardTitle>
+                  <CardDescription>These values drive the parametric pattern geometry and grading table.</CardDescription>
+                </div>
+                {!isEditing ? (
+                  <Button variant="outline" size="sm" onClick={handleStartEdit} className="font-mono text-xs h-8">
+                    <PenTool className="h-3 w-3 mr-2" /> Edit Measurements
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="font-mono text-xs h-8">Cancel</Button>
+                    <Button size="sm" onClick={handleSaveEdit} disabled={updateProject.isPending} className="font-mono text-xs h-8">
+                      <Save className="h-3 w-3 mr-2" /> Save Revision
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="border rounded-sm overflow-hidden">
@@ -303,13 +329,19 @@ export function ProjectDetail() {
                           <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No measurements defined.</TableCell>
                         </TableRow>
                       ) : (
-                        project.measurements.map((m) => (
+                        (isEditing && editForm ? editForm.measurements : project.measurements).map((m: any, index: number) => (
                           <TableRow key={m.code} className="hover:bg-muted/30">
                             <TableCell className="font-mono font-medium">{m.code}</TableCell>
                             <TableCell>{m.name}</TableCell>
-                            <TableCell className="text-right font-mono">{m.valueCm.toFixed(1)}</TableCell>
-                            <TableCell className="text-right font-mono text-muted-foreground">{m.toleranceCm.toFixed(1)}</TableCell>
-                            <TableCell className="text-right font-mono text-muted-foreground">{m.gradeRule}</TableCell>
+                            <TableCell className="text-right font-mono">
+                              {isEditing ? <Input type="number" step="0.1" value={m.valueCm} onChange={e => updateMeasurement(index, 'valueCm', e.target.value)} className="h-8 w-24 ml-auto text-right font-mono" /> : m.valueCm.toFixed(1)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              {isEditing ? <Input type="number" step="0.1" value={m.toleranceCm} onChange={e => updateMeasurement(index, 'toleranceCm', e.target.value)} className="h-8 w-20 ml-auto text-right font-mono" /> : m.toleranceCm.toFixed(1)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              {isEditing ? <Input type="number" step="0.1" value={m.gradeRule} onChange={e => updateMeasurement(index, 'gradeRule', e.target.value)} className="h-8 w-20 ml-auto text-right font-mono" /> : m.gradeRule}
+                            </TableCell>
                           </TableRow>
                         ))
                       )}
