@@ -1,0 +1,361 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: JNX Production Studio API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: templates
+    description: Controlled garment base templates
+  - name: projects
+    description: Production project records and exports
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /templates:
+    get:
+      operationId: listTemplates
+      tags: [templates]
+      summary: List controlled garment templates
+      responses:
+        "200":
+          description: Available templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Template"
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List production projects
+      responses:
+        "200":
+          description: Projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a production project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+  /projects/{projectId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get a production project
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateProject
+      tags: [projects]
+      summary: Save a new project revision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a production project
+      responses:
+        "204":
+          description: Project deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /projects/{projectId}/flat:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: getFlatPreview
+      tags: [projects]
+      summary: Get the technical flat preview
+      responses:
+        "200":
+          description: Technical flat SVG
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewAsset"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /projects/{projectId}/pattern:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: getPatternPreview
+      tags: [projects]
+      summary: Get the graded pattern preview
+      responses:
+        "200":
+          description: Graded pattern SVG
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewAsset"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /projects/{projectId}/grading:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: getGradingTable
+      tags: [projects]
+      summary: Get the size grading table
+      responses:
+        "200":
+          description: Grading rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GradingRow"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /projects/{projectId}/generate:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    post:
+      operationId: generateFactoryPackage
+      tags: [projects]
+      summary: Generate a preliminary factory package
+      responses:
+        "200":
+          description: Generated package metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FactoryPackage"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /summary:
+    get:
+      operationId: getProjectSummary
+      tags: [projects]
+      summary: Get a production workspace summary
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectSummary"
+components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    GarmentType:
+      type: string
+      enum: [oversized_hoodie, wide_cargo]
+    ValidationState:
+      type: string
+      enum: [PRELIMINARY_UNVALIDATED, SAMPLE_IN_REVIEW, APPROVED]
+    Color:
+      type: object
+      properties:
+        name: { type: string }
+        hex: { type: string }
+        pantone: { type: string }
+      required: [name, hex, pantone]
+    Measurement:
+      type: object
+      properties:
+        code: { type: string }
+        name: { type: string }
+        valueCm: { type: number }
+        toleranceCm: { type: number }
+        gradeRule: { type: string }
+      required: [code, name, valueCm, toleranceCm, gradeRule]
+    Material:
+      type: object
+      properties:
+        name: { type: string }
+        specification: { type: string }
+        supplier: { type: string }
+      required: [name, specification, supplier]
+    Artwork:
+      type: object
+      properties:
+        name: { type: string }
+        placement: { type: string }
+        notes: { type: string }
+      required: [name, placement, notes]
+    Template:
+      type: object
+      properties:
+        id: { $ref: "#/components/schemas/GarmentType" }
+        name: { type: string }
+        description: { type: string }
+        measurements:
+          type: array
+          items: { $ref: "#/components/schemas/Measurement" }
+      required: [id, name, description, measurements]
+    ProjectInput:
+      type: object
+      properties:
+        styleName: { type: string, minLength: 1 }
+        styleNumber: { type: string, minLength: 1 }
+        garmentType: { $ref: "#/components/schemas/GarmentType" }
+        baseSize: { type: string }
+        season: { type: string }
+        fit: { type: string }
+        description: { type: string }
+        concept: { type: string }
+        primaryColor: { $ref: "#/components/schemas/Color" }
+        measurements:
+          type: array
+          items: { $ref: "#/components/schemas/Measurement" }
+        materials:
+          type: array
+          items: { $ref: "#/components/schemas/Material" }
+        artworks:
+          type: array
+          items: { $ref: "#/components/schemas/Artwork" }
+      required:
+        - styleName
+        - styleNumber
+        - garmentType
+        - baseSize
+        - season
+        - fit
+        - description
+        - concept
+        - primaryColor
+        - measurements
+        - materials
+        - artworks
+    Project:
+      allOf:
+        - $ref: "#/components/schemas/ProjectInput"
+        - type: object
+          properties:
+            id: { type: string }
+            revision: { type: integer }
+            validationState: { $ref: "#/components/schemas/ValidationState" }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+          required: [id, revision, validationState, createdAt, updatedAt]
+    PreviewAsset:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [flat, pattern]
+        svg: { type: string }
+        warning: { type: string }
+      required: [kind, svg, warning]
+    GradingRow:
+      type: object
+      properties:
+        code: { type: string }
+        name: { type: string }
+        sizes:
+          type: object
+          additionalProperties: { type: number }
+        toleranceCm: { type: number }
+      required: [code, name, sizes, toleranceCm]
+    FactoryPackage:
+      type: object
+      properties:
+        packageName: { type: string }
+        downloadUrl: { type: string }
+        files:
+          type: array
+          items: { type: string }
+        validationState: { $ref: "#/components/schemas/ValidationState" }
+        warning: { type: string }
+      required: [packageName, downloadUrl, files, validationState, warning]
+    ProjectSummary:
+      type: object
+      properties:
+        totalProjects: { type: integer }
+        preliminaryProjects: { type: integer }
+        garmentCounts:
+          type: object
+          additionalProperties: { type: integer }
+        latestProject:
+          anyOf:
+            - $ref: "#/components/schemas/Project"
+            - type: "null"
+      required: [totalProjects, preliminaryProjects, garmentCounts, latestProject]
+

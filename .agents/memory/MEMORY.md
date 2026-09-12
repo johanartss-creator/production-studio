@@ -1,0 +1,1 @@
+- [Preliminary pattern safety](preliminary-pattern-safety.md) — generated apparel outputs must remain explicitly unvalidated until physical sampling and qualified review.

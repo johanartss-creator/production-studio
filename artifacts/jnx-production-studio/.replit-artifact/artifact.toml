@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "JNX Production Studio"
+description = "A controlled apparel production workspace for creating hoodie and cargo base projects, editing measurements, reviewing technical flats and graded patterns, and generating preliminary factory packages."
+version = "1.0.0"
+id = "artifacts/jnx-production-studio"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18905
+
+[services.development]
+run = "pnpm --filter @workspace/jnx-production-studio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/jnx-production-studio", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/jnx-production-studio/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18905"
+BASE_PATH = "/"
