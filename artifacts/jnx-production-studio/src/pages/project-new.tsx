@@ -16,7 +16,7 @@ import { Link } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 
 const projectSchema = z.object({
-  templateId: z.enum(['oversized_hoodie', 'wide_cargo'], { required_error: 'Please select a garment template' }),
+  templateId: z.enum(['oversized_hoodie', 'wide_cargo', 'boxy_tee', 'track_jacket', 'tailored_short'], { required_error: 'Please select a garment template' }),
   styleName: z.string().min(1, 'Style name is required'),
   styleNumber: z.string().min(1, 'Style number is required'),
   baseSize: z.string().min(1, 'Base size is required'),

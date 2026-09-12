@@ -128,7 +128,7 @@ export function Dashboard() {
                         <h3 className="font-semibold">{project.styleName}</h3>
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground font-mono">
-                        <span>{project.garmentType === 'oversized_hoodie' ? 'Oversized Hoodie' : 'Wide Cargo'}</span>
+                        <span>{project.garmentType.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase())}</span>
                         <span className="w-1 h-1 rounded-full bg-border" />
                         <span>Base: {project.baseSize}</span>
                         <span className="w-1 h-1 rounded-full bg-border" />

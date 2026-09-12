@@ -66,6 +66,24 @@ router.get("/templates", (_req, res): void => {
         "Wide-leg utility base with articulated rise, cargo pocket and waistband controls.",
       measurements: measurementsFor("wide_cargo"),
     },
+    {
+      id: "boxy_tee",
+      name: "Premium Boxy T-Shirt",
+      description: "Luxury-weight boxy tee with controlled shoulder, curved armhole and rib neck block.",
+      measurements: measurementsFor("boxy_tee"),
+    },
+    {
+      id: "track_jacket",
+      name: "Premium Track Jacket",
+      description: "Relaxed technical jacket block with stand collar, shaped sleeve and rib finishing.",
+      measurements: measurementsFor("track_jacket"),
+    },
+    {
+      id: "tailored_short",
+      name: "Tailored Sport Short",
+      description: "Premium short block balancing tailored rise geometry and athletic volume.",
+      measurements: measurementsFor("tailored_short"),
+    },
   ];
   res.json(ListTemplatesResponse.parse(templates));
 });
@@ -136,6 +154,7 @@ router.put("/projects/:projectId", async (req, res): Promise<void> => {
     .set({
       ...body.data,
       measurements,
+      validationState: "PRELIMINARY_UNVALIDATED",
       revision: sql`${projectsTable.revision} + 1`,
       updatedAt: new Date(),
     })

@@ -21,7 +21,7 @@ export const HealthCheckResponse = zod.object({
  * @summary List controlled garment templates
  */
 export const ListTemplatesResponseItem = zod.object({
-  "id": zod.enum(['oversized_hoodie', 'wide_cargo']),
+  "id": zod.enum(['oversized_hoodie', 'wide_cargo', 'boxy_tee', 'track_jacket', 'tailored_short']),
   "name": zod.string(),
   "description": zod.string(),
   "measurements": zod.array(zod.object({
@@ -45,7 +45,7 @@ export const ListTemplatesResponse = zod.array(ListTemplatesResponseItem)
 export const ListProjectsResponseItem = zod.object({
   "styleName": zod.string().min(1),
   "styleNumber": zod.string().min(1),
-  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo']),
+  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo', 'boxy_tee', 'track_jacket', 'tailored_short']),
   "baseSize": zod.string(),
   "season": zod.string(),
   "fit": zod.string(),
@@ -93,7 +93,7 @@ export const ListProjectsResponse = zod.array(ListProjectsResponseItem)
 export const CreateProjectBody = zod.object({
   "styleName": zod.string().min(1),
   "styleNumber": zod.string().min(1),
-  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo']),
+  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo', 'boxy_tee', 'track_jacket', 'tailored_short']),
   "baseSize": zod.string(),
   "season": zod.string(),
   "fit": zod.string(),
@@ -130,7 +130,7 @@ export const CreateProjectBody = zod.object({
 export const CreateProjectResponse = zod.object({
   "styleName": zod.string().min(1),
   "styleNumber": zod.string().min(1),
-  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo']),
+  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo', 'boxy_tee', 'track_jacket', 'tailored_short']),
   "baseSize": zod.string(),
   "season": zod.string(),
   "fit": zod.string(),
@@ -181,7 +181,7 @@ export const GetProjectParams = zod.object({
 export const GetProjectResponse = zod.object({
   "styleName": zod.string().min(1),
   "styleNumber": zod.string().min(1),
-  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo']),
+  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo', 'boxy_tee', 'track_jacket', 'tailored_short']),
   "baseSize": zod.string(),
   "season": zod.string(),
   "fit": zod.string(),
@@ -232,7 +232,7 @@ export const UpdateProjectParams = zod.object({
 export const UpdateProjectBody = zod.object({
   "styleName": zod.string().min(1),
   "styleNumber": zod.string().min(1),
-  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo']),
+  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo', 'boxy_tee', 'track_jacket', 'tailored_short']),
   "baseSize": zod.string(),
   "season": zod.string(),
   "fit": zod.string(),
@@ -269,7 +269,7 @@ export const UpdateProjectBody = zod.object({
 export const UpdateProjectResponse = zod.object({
   "styleName": zod.string().min(1),
   "styleNumber": zod.string().min(1),
-  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo']),
+  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo', 'boxy_tee', 'track_jacket', 'tailored_short']),
   "baseSize": zod.string(),
   "season": zod.string(),
   "fit": zod.string(),
@@ -390,7 +390,7 @@ export const GetProjectSummaryResponse = zod.object({
   "latestProject": zod.union([zod.object({
   "styleName": zod.string().min(1),
   "styleNumber": zod.string().min(1),
-  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo']),
+  "garmentType": zod.enum(['oversized_hoodie', 'wide_cargo', 'boxy_tee', 'track_jacket', 'tailored_short']),
   "baseSize": zod.string(),
   "season": zod.string(),
   "fit": zod.string(),

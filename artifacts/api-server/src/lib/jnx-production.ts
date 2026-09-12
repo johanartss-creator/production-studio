@@ -2,7 +2,17 @@ import type {
   ProjectMeasurement,
   ProjectRecord,
 } from "@workspace/db";
-import { bounds, draftPattern, type PatternPiece, type Point } from "./pattern-engine";
+import {
+  bounds,
+  draftPattern,
+  draftPatternForSize,
+  patternSizes,
+  perimeterCm,
+  seamAllowancePoints,
+  type PatternPiece,
+  type PatternSize,
+  type Point,
+} from "./pattern-engine";
 
 export const PRELIMINARY_WARNING =
   "PRELIMINARY_UNVALIDATED — Development pattern only. A qualified pattern maker must review this output, validate it in the specified fabric, correct it after a physical fitting, and approve a signed PP sample before bulk cutting.";
@@ -44,13 +54,43 @@ export const defaultMeasurements = {
     ["B12", "Cargo pocket height", 25, 0.6, "0.5"],
     ["B13", "Waistband height", 4.5, 0.4, "0"],
   ],
+  boxy_tee: [
+    ["C01", "Chest width", 62, 0.8, "2"],
+    ["C02", "Body length", 69, 0.8, "1"],
+    ["C03", "Shoulder width", 58, 0.6, "1.5"],
+    ["C04", "Sleeve length", 24, 0.6, "0.7"],
+    ["C05", "Sleeve opening", 21, 0.5, "0.7"],
+    ["C06", "Neck width", 19, 0.4, "0.4"],
+    ["C07", "Front neck drop", 9, 0.4, "0.3"],
+    ["C08", "Bottom opening", 61, 0.8, "2"],
+  ],
+  track_jacket: [
+    ["D01", "Chest width", 66, 1, "2"],
+    ["D02", "Body length", 70, 1, "1"],
+    ["D03", "Shoulder width", 59, 0.8, "1.5"],
+    ["D04", "Sleeve length", 63, 0.8, "1"],
+    ["D05", "Bottom opening", 55, 1, "2"],
+    ["D06", "Collar height", 7, 0.4, "0"],
+    ["D07", "Bicep width", 26, 0.6, "1"],
+    ["D08", "Cuff opening", 10.5, 0.5, "0.5"],
+  ],
+  tailored_short: [
+    ["E01", "Waist width", 42, 0.8, "2"],
+    ["E02", "Seat width", 57, 1, "2"],
+    ["E03", "Front rise", 31, 0.8, "1"],
+    ["E04", "Back rise", 41, 0.8, "1"],
+    ["E05", "Outseam", 52, 0.8, "1"],
+    ["E06", "Inseam", 20, 0.8, "0.7"],
+    ["E07", "Leg opening", 34, 0.8, "1"],
+    ["E08", "Waistband height", 4.5, 0.4, "0"],
+  ],
 } satisfies Record<
-  "oversized_hoodie" | "wide_cargo",
+  "oversized_hoodie" | "wide_cargo" | "boxy_tee" | "track_jacket" | "tailored_short",
   [string, string, number, number, string][]
 >;
 
 export const measurementsFor = (
-  garmentType: "oversized_hoodie" | "wide_cargo",
+  garmentType: "oversized_hoodie" | "wide_cargo" | "boxy_tee" | "track_jacket" | "tailored_short",
 ): ProjectMeasurement[] =>
   defaultMeasurements[garmentType].map(
     ([code, name, valueCm, toleranceCm, gradeRule]) => ({
@@ -79,6 +119,13 @@ const svgShell = (body: string, title: string) => `<svg xmlns="http://www.w3.org
 
 export const flatSvg = (project: ProjectRecord) => {
   const title = `${project.styleNumber} technical flat`;
+  if (project.garmentType === "tailored_short") {
+    return svgShell(
+      `<text x="48" y="54" class="label">${xml(project.styleNumber)} / TAILORED SPORT SHORT / REV ${project.revision}</text>
+       <g transform="translate(170 150)"><path class="piece" d="M90 0L310 0L340 145L290 390L205 390L180 180L155 390L70 390L55 145Z"/><path class="detail" d="M55 145Q200 190 340 145M90 0Q200 26 310 0M180 180L205 150L230 180"/></g>
+       <g transform="translate(690 150)"><path class="piece" d="M90 0L310 0L350 150L298 390L210 390L180 185L145 390L58 390L48 150Z"/><path class="detail" d="M48 150Q200 205 350 150M90 0Q200 32 310 0"/></g>
+       <text x="330" y="610" class="meta">FRONT</text><text x="850" y="610" class="meta">BACK</text>`, title);
+  }
   if (project.garmentType === "wide_cargo") {
     return svgShell(
       `<text x="48" y="54" class="label">${xml(project.styleNumber)} / WIDE CARGO / REV ${project.revision}</text>
@@ -98,12 +145,20 @@ export const flatSvg = (project: ProjectRecord) => {
     );
   }
 
+  const isHoodie = project.garmentType === "oversized_hoodie";
+  const isTrack = project.garmentType === "track_jacket";
+  const garmentLabel = project.garmentType.replaceAll("_", " ").toUpperCase();
+  const neckline = isHoodie
+    ? `<path class="detail" d="M190 70Q255 132 320 70M190 70Q205 0 255 0Q305 0 320 70"/>`
+    : isTrack
+      ? `<path class="detail" d="M190 70L205 5L305 5L320 70M255 5L255 555"/>`
+      : `<path class="detail" d="M190 70Q255 125 320 70"/>`;
+  const pocket = isHoodie ? `<path class="detail" d="M185 355Q255 305 325 355L315 470L195 470Z"/>` : "";
   return svgShell(
-    `<text x="48" y="54" class="label">${xml(project.styleNumber)} / OVERSIZED HOODIE / REV ${project.revision}</text>
+    `<text x="48" y="54" class="label">${xml(project.styleNumber)} / ${garmentLabel} / REV ${project.revision}</text>
      <g transform="translate(70 105)">
       <path class="piece" d="M155 105L40 165L85 265L138 235L120 555L390 555L372 235L425 265L470 165L355 105L320 70L190 70Z"/>
-      <path class="detail" d="M190 70Q255 132 320 70M190 70Q205 0 255 0Q305 0 320 70"/>
-      <path class="detail" d="M185 355Q255 305 325 355L315 470L195 470Z"/>
+      ${neckline}${pocket}
       <path class="detail" d="M120 515L390 515M85 265L138 235M372 235L425 265"/>
      </g>
      <g transform="translate(650 105)">
@@ -120,6 +175,7 @@ const pointString = (points: Point[], scale: number, ox: number, oy: number) =>
 
 const renderPatternPiece = (piece: PatternPiece, x: number, y: number, scale: number) => {
   const outline = pointString(piece.points, scale, x, y);
+  const allowance = pointString(seamAllowancePoints(piece), scale, x, y);
   const grain = piece.grainline
     ? `<line class="grain" x1="${piece.grainline[0].x * scale + x}" y1="${piece.grainline[0].y * scale + y}" x2="${piece.grainline[1].x * scale + x}" y2="${piece.grainline[1].y * scale + y}"/>`
     : "";
@@ -131,7 +187,7 @@ const renderPatternPiece = (piece: PatternPiece, x: number, y: number, scale: nu
     .join("");
   return `<g data-piece="${xml(piece.id)}">
     <polygon class="piece" points="${outline}"/>
-    <polygon class="seam" points="${outline}" transform="translate(${piece.seamAllowanceMm / 2} ${piece.seamAllowanceMm / 2})"/>
+    <polygon class="seam" points="${allowance}"/>
     ${grain}${fold}${notches}
     <text class="label" x="${x + 8}" y="${y + 20}">${xml(piece.name)}</text>
     <text class="meta" x="${x + 8}" y="${y + 39}">${xml(piece.cut)} · SA ${piece.seamAllowanceMm} MM</text>
@@ -140,6 +196,9 @@ const renderPatternPiece = (piece: PatternPiece, x: number, y: number, scale: nu
 
 export const patternSvg = (project: ProjectRecord) => {
   const pieces = draftPattern(project);
+  const gradedBySize = Object.fromEntries(
+    patternSizes.map((size) => [size, draftPatternForSize(project, size)]),
+  ) as Record<PatternSize, PatternPiece[]>;
   let cursorX = 40;
   let cursorY = 95;
   let rowHeight = 0;
@@ -153,7 +212,17 @@ export const patternSvg = (project: ProjectRecord) => {
       cursorY += rowHeight + 22;
       rowHeight = 0;
     }
-    const rendered = renderPatternPiece(piece, cursorX, cursorY, scale);
+    const graded = patternSizes.map((size, index) => {
+      if (size === project.baseSize) return "";
+      const gradedPiece = gradedBySize[size].find((candidate) => candidate.id === piece.id);
+      if (!gradedPiece) return "";
+      const colors = ["#a7a197", "#77736c", "#181817", "#4c77a8", "#8e5a9d", "#2c8a70"];
+      return `<g data-size="${size}">
+        <polygon points="${pointString(gradedPiece.points, scale, cursorX, cursorY)}" fill="none" stroke="${colors[index]}" stroke-width="1" opacity="0.65"/>
+        <polygon points="${pointString(seamAllowancePoints(gradedPiece), scale, cursorX, cursorY)}" fill="none" stroke="${colors[index]}" stroke-width="0.7" stroke-dasharray="3 3" opacity="0.5"/>
+      </g>`;
+    }).join("");
+    const rendered = `${graded}${renderPatternPiece(piece, cursorX, cursorY, scale)}`;
     cursorX += width;
     rowHeight = Math.max(rowHeight, height);
     return rendered;
@@ -161,24 +230,24 @@ export const patternSvg = (project: ProjectRecord) => {
 
   return svgShell(
     `<text x="48" y="42" class="label">${xml(project.styleNumber)} / PARAMETRIC BASE PATTERN / REV ${project.revision}</text>
-     <text x="48" y="66" class="meta">BASE ${xml(project.baseSize)} · DIMENSION-DRIVEN DEVELOPMENT BLOCK · RED = SA REFERENCE · BLUE = FOLD</text>
+     <text x="48" y="66" class="meta">XS–XXL NEST · BASE ${xml(project.baseSize)} BLACK · RED = TRUE OFFSET SA · BLUE = FOLD</text>
      ${body}`,
     `${project.styleNumber} parametric base pattern`,
   );
 };
 
 export const gradingRows = (project: ProjectRecord) => {
-  const sizes = ["XS", "S", "M", "L", "XL", "XXL"];
-  const offsets = [-2, -1, 0, 1, 2, 3];
+  const baseIndex = patternSizes.indexOf(project.baseSize as PatternSize);
+  const resolvedBaseIndex = baseIndex >= 0 ? baseIndex : patternSizes.indexOf("M");
   return project.measurements.map((measurement) => {
     const step = Number.parseFloat(measurement.gradeRule) || 0;
     return {
       code: measurement.code,
       name: measurement.name,
       sizes: Object.fromEntries(
-        sizes.map((size, index) => [
+        patternSizes.map((size, index) => [
           size,
-          Number((measurement.valueCm + offsets[index]! * step).toFixed(1)),
+          Number((measurement.valueCm + (index - resolvedBaseIndex) * step).toFixed(1)),
         ]),
       ),
       toleranceCm: measurement.toleranceCm,
@@ -211,7 +280,7 @@ const bomCsv = (project: ProjectRecord) => [
 ].join("\n");
 
 const constructionCsv = (project: ProjectRecord) => {
-  const operations = project.garmentType === "wide_cargo"
+  const operations = ["wide_cargo", "tailored_short"].includes(project.garmentType)
     ? [
         ["C01", "Rise and inseam", "5-thread safety stitch", "10-12", "Match notches; reinforce crotch"],
         ["C02", "Cargo pocket", "Lockstitch + edge stitch", "10-12", "Confirm finished position on fit sample"],
@@ -229,6 +298,33 @@ const constructionCsv = (project: ProjectRecord) => {
 
 const validationReport = (project: ProjectRecord) => {
   const pieces = draftPattern(project);
+  const perimeters = Object.fromEntries(pieces.map((piece) => [piece.id, Number(perimeterCm(piece).toFixed(2))]));
+  const seamWalkByGarment: Record<ProjectRecord["garmentType"], Array<{ pair: string; status: "REVIEW"; note: string }>> = {
+    oversized_hoodie: [
+      { pair: "front/back shoulder", status: "REVIEW", note: "Walk shoulder seams after grading" },
+      { pair: "body/sleeve armhole", status: "REVIEW", note: "Walk armhole against sleeve after fabric selection" },
+      { pair: "hood/neckline", status: "REVIEW", note: "Confirm neckline seam against hood assembly" },
+    ],
+    wide_cargo: [
+      { pair: "front-leg/back-leg", status: "REVIEW", note: "Walk inseam and outseam after rise shaping" },
+      { pair: "waist/waistband", status: "REVIEW", note: "Confirm waistband seam against finished waist" },
+    ],
+    boxy_tee: [
+      { pair: "front/back shoulder", status: "REVIEW", note: "Walk shoulder seams after grading" },
+      { pair: "body/short-sleeve armhole", status: "REVIEW", note: "Walk curved armhole against short sleeve" },
+      { pair: "neckline/neck-rib", status: "REVIEW", note: "Confirm rib ratio after stretch recovery test" },
+    ],
+    track_jacket: [
+      { pair: "front/back shoulder", status: "REVIEW", note: "Walk shoulder seams after grading" },
+      { pair: "body/sleeve armhole", status: "REVIEW", note: "Walk armhole against shaped sleeve" },
+      { pair: "neckline/stand-collar", status: "REVIEW", note: "Confirm stand collar seam after fusing test" },
+    ],
+    tailored_short: [
+      { pair: "front-short/back-short", status: "REVIEW", note: "Walk inseam, side seam and rise" },
+      { pair: "waist/waistband", status: "REVIEW", note: "Confirm contoured waistband seam against waist" },
+    ],
+  };
+  const seamWalk = seamWalkByGarment[project.garmentType];
   return {
     status: "PRELIMINARY_UNVALIDATED",
     engine: "JNX_PARAMETRIC_BLOCK_V1",
@@ -244,21 +340,36 @@ const validationReport = (project: ProjectRecord) => {
       boundsCm: bounds(piece),
       hasGrainline: Boolean(piece.grainline),
       notchCount: piece.notches?.length ?? 0,
+      seamLinePerimeterCm: perimeters[piece.id],
     })),
+    seamWalk,
     gatesBeforeBulk: ["fabric shrinkage test", "pattern-maker review", "seam walk", "physical toile", "fit sample", "PP sample approval"],
     warning: PRELIMINARY_WARNING,
   };
 };
 
-const dxfPolyline = (piece: PatternPiece, offsetX: number) => `0
+const dxfEntity = (points: Point[], layer: string) => `0
 LWPOLYLINE
 8
-${piece.id.toUpperCase()}
+${layer}
 90
-${piece.points.length}
+${points.length}
 70
 1
-${piece.points.map((point) => `10\n${((point.x + offsetX) * 10).toFixed(3)}\n20\n${(-point.y * 10).toFixed(3)}`).join("\n")}
+${points.map((point) => `10\n${(point.x * 10).toFixed(3)}\n20\n${(-point.y * 10).toFixed(3)}`).join("\n")}`;
+
+const shifted = (points: Point[], offsetX: number) => points.map((point) => ({ x: point.x + offsetX, y: point.y }));
+
+const dxfPolyline = (project: ProjectRecord, piece: PatternPiece, offsetX: number) => {
+  const graded = patternSizes.map((size) => {
+    const sizedPiece = draftPatternForSize(project, size).find((candidate) => candidate.id === piece.id);
+    if (!sizedPiece) return "";
+    const seam = shifted(sizedPiece.points, offsetX);
+    const cut = shifted(seamAllowancePoints(sizedPiece), offsetX);
+    return `${dxfEntity(seam, `SEAM_${size}_${piece.id.toUpperCase()}`)}
+${dxfEntity(cut, `CUT_${size}_${piece.id.toUpperCase()}`)}`;
+  }).join("\n");
+  return `${graded}
 0
 TEXT
 8
@@ -271,11 +382,12 @@ ${(offsetX * 10).toFixed(3)}
 8
 1
 ${piece.name} / ${piece.cut} / SA ${piece.seamAllowanceMm} MM`;
+};
 
 const dxf = (project: ProjectRecord) => {
   let offsetX = 0;
   const entities = draftPattern(project).map((piece) => {
-    const entity = dxfPolyline(piece, offsetX);
+    const entity = dxfPolyline(project, piece, offsetX);
     offsetX += bounds(piece).width + 15;
     return entity;
   }).join("\n");

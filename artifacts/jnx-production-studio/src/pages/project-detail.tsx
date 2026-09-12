@@ -164,7 +164,7 @@ export function ProjectDetail() {
             </div>
             <h1 className="text-3xl font-bold tracking-tight">{project.styleName}</h1>
             <p className="text-muted-foreground text-sm font-mono mt-1">
-              {project.garmentType === 'oversized_hoodie' ? 'OVERSIZED HOODIE' : 'WIDE CARGO'} // {project.season} // BASE: {project.baseSize}
+              {project.garmentType.replaceAll('_', ' ').toUpperCase()} // {project.season} // BASE: {project.baseSize}
             </p>
           </div>
         </div>

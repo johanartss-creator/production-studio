@@ -226,7 +226,7 @@ components:
       required: [error]
     GarmentType:
       type: string
-      enum: [oversized_hoodie, wide_cargo]
+      enum: [oversized_hoodie, wide_cargo, boxy_tee, track_jacket, tailored_short]
     ValidationState:
       type: string
       enum: [PRELIMINARY_UNVALIDATED, SAMPLE_IN_REVIEW, APPROVED]

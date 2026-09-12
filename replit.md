@@ -42,6 +42,8 @@ A controlled apparel-development workspace for creating JNX garment bases, editi
 - Technical flat and graded pattern previews
 - Revision-controlled project records
 - Downloadable ten-file factory package with SVG, BOM/construction/measurement CSVs, DXF, PDF, validation report, manifest, and safety instructions
+- Phase 2 geometry: sampled curved seams, true polygon-offset seam allowances, XS–XXL vector nests, layered DXF grading, seam-walk review report
+- Five original JNX base blocks: oversized hoodie, wide cargo, premium boxy tee, premium track jacket, and tailored sport short
 
 ## User preferences
 

@@ -12,4 +12,7 @@ export type GarmentType = typeof GarmentType[keyof typeof GarmentType];
 export const GarmentType = {
   oversized_hoodie: 'oversized_hoodie',
   wide_cargo: 'wide_cargo',
+  boxy_tee: 'boxy_tee',
+  track_jacket: 'track_jacket',
+  tailored_short: 'tailored_short',
 } as const;
