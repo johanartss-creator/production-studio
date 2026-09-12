@@ -429,28 +429,73 @@ EOF`;
 };
 
 const pdf = (project: ProjectRecord) => {
-  const text = [
-    "JNX PRODUCTION STUDIO / TECH PACK",
-    `${project.styleNumber} — ${project.styleName}`,
-    `GARMENT: ${project.garmentType.replaceAll("_", " ").toUpperCase()}`,
-    `SEASON: ${project.season} / BASE SIZE: ${project.baseSize} / REV: ${project.revision}`,
-    `FIT: ${project.fit}`,
-    `COLOR: ${project.primaryColor.name} / ${project.primaryColor.hex} / ${project.primaryColor.pantone}`,
-    `PATTERN ENGINE: JNX PARAMETRIC BLOCK V1 / ${draftPattern(project).length} PIECES`,
-    `MATERIALS: ${project.materials.map((material) => `${material.name}: ${material.specification}`).join("; ") || "TBC AFTER FABRIC TEST"}`,
-    `ARTWORK: ${project.artworks.map((artwork) => `${artwork.name}: ${artwork.placement}`).join("; ") || "NONE SPECIFIED"}`,
-    "MANDATORY GATES: SHRINKAGE / SEAM WALK / TOILE / FIT SAMPLE / PP SAMPLE",
-    PRELIMINARY_WARNING,
-  ]
-    .map((line) => line.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)"))
-    .map((line, index) => `BT /F1 ${index === 0 ? 16 : 10} Tf 50 ${790 - index * 45} Td (${line}) Tj ET`)
-    .join("\n");
-  const stream = Buffer.from(text, "utf8");
+  const ascii = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "-");
+  const escapePdf = (value: string) => ascii(value).replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
+  const wrap = (value: string, max = 82) => {
+    const words = ascii(value).split(/\s+/);
+    const lines: string[] = [];
+    let current = "";
+    for (const word of words) {
+      if (`${current} ${word}`.trim().length > max && current) {
+        lines.push(current);
+        current = word;
+      } else current = `${current} ${word}`.trim();
+    }
+    if (current) lines.push(current);
+    return lines;
+  };
+  const makePage = (title: string, sections: { heading: string; lines: string[] }[], pageNumber: number) => {
+    const commands: string[] = ["0.1 0.1 0.09 rg", `BT /F1 18 Tf 48 790 Td (${escapePdf("JNX / " + title)}) Tj ET`, "0.95 0.42 0.08 RG 48 775 m 564 775 l S"];
+    let y = 742;
+    for (const section of sections) {
+      commands.push(`BT /F1 11 Tf 48 ${y} Td (${escapePdf(section.heading.toUpperCase())}) Tj ET`);
+      y -= 20;
+      for (const raw of section.lines) {
+        for (const line of wrap(raw)) {
+          commands.push(`BT /F1 9 Tf 48 ${y} Td (${escapePdf(line)}) Tj ET`);
+          y -= 14;
+        }
+        y -= 3;
+      }
+      y -= 13;
+    }
+    commands.push("0.75 0.75 0.72 RG 48 48 m 564 48 l S", `BT /F1 8 Tf 48 31 Td (${escapePdf(`CONFIDENTIAL DEVELOPMENT / ${project.styleNumber} / REV ${project.revision}`)}) Tj ET`, `BT /F1 8 Tf 530 31 Td (${pageNumber}/4) Tj ET`);
+    return commands.join("\n");
+  };
+  const pages = [
+    makePage("PILOT TECH PACK", [
+      { heading: `${project.styleNumber} - ${project.styleName}`, lines: [`Garment: ${project.garmentType.replaceAll("_", " ").toUpperCase()}`, `Season: ${project.season}`, `Base size: ${project.baseSize} / Revision: ${project.revision}`, `Status: ${project.validationState}`] },
+      { heading: "Fit and intent", lines: [project.fit, project.description, project.concept] },
+      { heading: "Color", lines: [`${project.primaryColor.name} / ${project.primaryColor.hex} / ${project.primaryColor.pantone}`] },
+      { heading: "Mandatory warning", lines: [PRELIMINARY_WARNING] },
+    ], 1),
+    makePage("MEASUREMENTS AND GRADING", [
+      { heading: `Base ${project.baseSize} specification - centimetres`, lines: project.measurements.map((item) => `${item.code}  ${item.name}: ${item.valueCm.toFixed(1)} cm  | tolerance +/- ${item.toleranceCm.toFixed(1)}  | grade ${item.gradeRule}`) },
+      { heading: "Measurement protocol", lines: ["Measure garment laid flat and relaxed. Factory must submit a complete measurement report before shipping the sample.", "Any block substitution or measurement change requires a new revision and a full graded nest for approval."] },
+    ], 2),
+    makePage("MATERIALS, CONSTRUCTION AND ARTWORK", [
+      { heading: "Bill of materials", lines: (project.materials.length ? project.materials : [{ name: "Main fabric", specification: "TBC", supplier: "TBC" }]).map((item) => `${item.name}: ${item.specification}. Supplier: ${item.supplier}.`) },
+      { heading: "Artwork controls", lines: (project.artworks.length ? project.artworks : [{ name: "No artwork", placement: "N/A", notes: "N/A" }]).map((item) => `${item.name} / ${item.placement}. ${item.notes}`) },
+      { heading: "Construction controls", lines: ["Neck rib: finished width 2.5 cm. Shoulder-to-shoulder stabilization tape.", "Sleeve and body hems: two-needle coverstitch. Side vents: 2.5 cm with reinforcement bartacks.", "Factory must confirm seam type, SPI, thread, shrinkage and wash performance on the physical sample."] },
+    ], 3),
+    makePage("SAMPLE APPROVAL GATES", [
+      { heading: "Before sample cutting", lines: ["[ ] Fabric swatch and handfeel approved", "[ ] GSM and composition verified", "[ ] Pattern maker completed seam walk", "[ ] DXF scale and all POM verified", "[ ] Artwork master vector and strike-off approved"] },
+      { heading: "Fit sample review", lines: ["[ ] Base M measurements within tolerance", "[ ] Front, back and side photographs supplied", "[ ] Movement, comfort and balance approved", "[ ] Wash and shrinkage test passed", "[ ] Required corrections recorded as a new revision"] },
+      { heading: "Bulk release", lines: ["[ ] Final pattern version recorded", "[ ] BOM locked", "[ ] PP sample approved", "[ ] Golden sample sealed", "[ ] JNX signature and date recorded", "Do not bulk cut until every gate above is complete."] },
+    ], 4),
+  ];
+  const pageObjectIds = [3, 5, 7, 9];
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
-    `<< /Length ${stream.length} >>\nstream\n${text}\nendstream`,
+    `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(" ")}] /Count 4 >>`,
+    ...pages.flatMap((content, index) => {
+      const stream = Buffer.from(content, "ascii");
+      const contentId = pageObjectIds[index]! + 1;
+      return [
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 11 0 R >> >> /Contents ${contentId} 0 R >>`,
+        `<< /Length ${stream.length} >>\nstream\n${content}\nendstream`,
+      ];
+    }),
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
   ];
   let output = "%PDF-1.4\n";
