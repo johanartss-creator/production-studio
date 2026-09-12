@@ -41,7 +41,7 @@ A controlled apparel-development workspace for creating JNX garment bases, editi
 - Editable size-M points of measure with XS–XXL grading
 - Technical flat and graded pattern previews
 - Revision-controlled project records
-- Downloadable seven-file factory package with SVG, CSV, DXF, PDF, manifest, and safety instructions
+- Downloadable ten-file factory package with SVG, BOM/construction/measurement CSVs, DXF, PDF, validation report, manifest, and safety instructions
 
 ## User preferences
 
