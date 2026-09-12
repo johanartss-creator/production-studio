@@ -280,19 +280,41 @@ const bomCsv = (project: ProjectRecord) => [
 ].join("\n");
 
 const constructionCsv = (project: ProjectRecord) => {
-  const operations = ["wide_cargo", "tailored_short"].includes(project.garmentType)
-    ? [
-        ["C01", "Rise and inseam", "5-thread safety stitch", "10-12", "Match notches; reinforce crotch"],
-        ["C02", "Cargo pocket", "Lockstitch + edge stitch", "10-12", "Confirm finished position on fit sample"],
-        ["C03", "Waistband", "Lockstitch / clean finish", "10-12", "Verify extension and closure"],
-        ["C04", "Hem", "Blind or lockstitch per sample", "10-12", "Finished opening must match POM"],
-      ]
-    : [
-        ["C01", "Shoulder / armhole", "5-thread safety stitch", "10-12", "Stabilize shoulder; match sleeve notches"],
-        ["C02", "Hood assembly", "Lockstitch + clean finish", "10-12", "Confirm hood volume on fit sample"],
-        ["C03", "Pocket", "Lockstitch + bartack", "10-12", "Mirror placement from centre front"],
-        ["C04", "Rib attachment", "Overlock + cover/lock stitch", "10-12", "Confirm rib stretch ratio after test"],
-      ];
+  const operationsByGarment: Record<ProjectRecord["garmentType"], string[][]> = {
+    oversized_hoodie: [
+      ["C01", "Shoulder and armhole", "5-thread safety stitch", "10-12", "Stabilize shoulder; match sleeve notches"],
+      ["C02", "Hood assembly", "Lockstitch + clean finish", "10-12", "Confirm hood volume on fit sample"],
+      ["C03", "Kangaroo pocket", "Lockstitch + bartack", "10-12", "Mirror placement from centre front"],
+      ["C04", "Rib attachment", "Overlock + cover/lock stitch", "10-12", "Confirm rib stretch ratio after test"],
+    ],
+    wide_cargo: [
+      ["C01", "Rise and inseam", "5-thread safety stitch", "10-12", "Match notches; reinforce crotch"],
+      ["C02", "Cargo pocket", "Lockstitch + edge stitch", "10-12", "Confirm finished position on fit sample"],
+      ["C03", "Waistband", "Lockstitch / clean finish", "10-12", "Verify extension and closure"],
+      ["C04", "Hem", "Lockstitch per approved sample", "10-12", "Finished opening must match POM"],
+    ],
+    boxy_tee: [
+      ["C01", "Shoulder joining", "5-thread safety stitch + stabilization tape", "10-12", "Apply shoulder-to-shoulder stabilization tape without stretching"],
+      ["C02", "Sleeve and armhole assembly", "5-thread safety stitch", "10-12", "Match sleeve and armhole notches; distribute ease evenly"],
+      ["C03", "Side seam closing", "5-thread safety stitch", "10-12", "Align underarm and hem reference points"],
+      ["C04", "Side vent finishing and reinforcement", "Clean finish + bartack reinforcement", "10-12", "Finish both vent edges and reinforce upper opening"],
+      ["C05", "Sleeve and body hems", "Two-needle coverstitch", "10-12", "Maintain even finished width without roping or tunnelling"],
+      ["C06", "Neck rib attachment", "Overlock + cover/lock stitch", "10-12", "Confirm rib stretch ratio, recovery and neckline balance"],
+    ],
+    track_jacket: [
+      ["C01", "Shoulder and armhole", "5-thread safety stitch", "10-12", "Stabilize shoulder; match sleeve notches"],
+      ["C02", "Sleeve and side seam closing", "5-thread safety stitch", "10-12", "Align underarm and hem reference points"],
+      ["C03", "Stand collar assembly", "Lockstitch + clean finish", "10-12", "Confirm collar seam and fusing performance"],
+      ["C04", "Front opening and hem", "Lockstitch + edge stitch", "10-12", "Verify zipper alignment and finished hem level"],
+    ],
+    tailored_short: [
+      ["C01", "Rise and inseam", "5-thread safety stitch", "10-12", "Match notches; reinforce crotch"],
+      ["C02", "Side seam", "5-thread safety stitch", "10-12", "Walk front and back side seams before assembly"],
+      ["C03", "Contoured waistband", "Lockstitch / clean finish", "10-12", "Verify extension, closure and finished waist"],
+      ["C04", "Hem", "Blind stitch or lockstitch per approved sample", "10-12", "Finished opening must match POM"],
+    ],
+  };
+  const operations = operationsByGarment[project.garmentType];
   return ["OPERATION,AREA,SEAM/STITCH,SPI,QUALITY CONTROL", ...operations.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
 };
 
